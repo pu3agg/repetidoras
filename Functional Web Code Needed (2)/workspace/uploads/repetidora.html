@@ -1,0 +1,1318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Repetidoras - Radioamadorismo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        #map { height: 400px; }
+        .leaflet-container { font-family: inherit; }
+        .input-error { border-color: #ef4444 !important; }
+        .error-message { color: #ef4444; font-size: 0.875rem; margin-top: 0.25rem; }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-radius: 50%;
+            border-top: 4px solid #16a34a;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-white font-sans">
+    <!-- Header -->
+    <header class="bg-black text-white shadow-md">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fas fa-broadcast-tower text-green-500 text-2xl"></i>
+                <h1 class="text-xl font-bold">Monitor de Repetidoras</h1>
+            </div>
+            <nav>
+                <ul class="flex space-x-6 items-center">
+                    <li><a href="#" class="hover:text-green-400 transition" onclick="showHome()">Início</a></li>
+                    <li id="loginNavItem"><a href="#" class="hover:text-green-400 transition" onclick="showLogin()">Login</a></li>
+                    <li id="registerNavItem"><a href="#" class="hover:text-green-400 transition" onclick="showRegister()">Cadastrar</a></li>
+                    <li id="addRepeaterNavItem" class="hidden"><a href="#" class="hover:text-green-400 transition" onclick="showAddRepeater()">Adicionar Repetidora</a></li>
+                    <li id="logoutNavItem" class="hidden"><a href="#" class="hover:text-green-400 transition" onclick="logout()">Sair</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto px-4 py-6">
+        <!-- Home Section -->
+        <section id="homeSection">
+            <div class="mb-8">
+                <h2 class="text-2xl font-bold text-black mb-4">Repetidoras Disponíveis</h2>
+                <div class="bg-white rounded-lg shadow-md p-4 mb-6">
+                    <div class="flex flex-col md:flex-row md:justify-between md:items-center mb-4">
+                        <div class="relative w-full md:w-64 mb-4 md:mb-0">
+                            <input type="text" id="searchRepeaters" placeholder="Buscar repetidoras..." 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                            <i class="fas fa-search absolute right-3 top-3 text-gray-400"></i>
+                        </div>
+                        <div class="flex space-x-2">
+                            <select id="filterCountry" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="">Todos os países</option>
+                                <option value="Brasil">Brasil</option>
+                                <option value="Chile">Chile</option>
+                                <option value="Paraguai">Paraguai</option>
+                                <option value="Uruguai">Uruguai</option>
+                                <option value="Argentina">Argentina</option>
+                            </select>
+                            <select id="filterStatus" class="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="">Todos os status</option>
+                                <option value="operacional">Operacional</option>
+                                <option value="não-operacional">Não-operacional</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full bg-white">
+                            <thead>
+                                <tr class="bg-gray-100 text-black">
+                                    <th class="py-3 px-4 text-left">País</th>
+                                    <th class="py-3 px-4 text-left">Estado</th>
+                                    <th class="py-3 px-4 text-left">Cidade</th>
+                                    <th class="py-3 px-4 text-left">Frequência</th>
+                                    <th class="py-3 px-4 text-left">Duplex</th>
+                                    <th class="py-3 px-4 text-left">Subtom</th>
+                                    <th class="py-3 px-4 text-left">Status</th>
+                                    <th class="py-3 px-4 text-left">Verificada por</th>
+                                    <th class="py-3 px-4 text-left">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="repeatersTableBody" class="divide-y divide-gray-200">
+                                <!-- Repeaters will be loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <h2 class="text-2xl font-bold text-black mb-4">Mapa de Repetidoras</h2>
+                <div class="bg-white rounded-lg shadow-md p-4">
+                    <div id="map" class="w-full rounded-lg"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Login Section -->
+        <section id="loginSection" class="hidden max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-black mb-6 text-center">Login</h2>
+            <form id="loginForm" class="space-y-4">
+                <div>
+                    <label for="loginIndicative" class="block text-sm font-medium text-gray-700 mb-1">Indicativo</label>
+                    <input type="text" id="loginIndicative" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" maxlength="6">
+                    <div id="loginIndicativeError" class="error-message hidden">Indicativo inválido</div>
+                </div>
+                <div>
+                    <label for="loginPassword" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <input type="password" id="loginPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <div id="loginPasswordError" class="error-message hidden">Senha inválida</div>
+                </div>
+                <button type="button" onclick="performLogin()" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    Entrar
+                </button>
+                <div id="loginError" class="text-red-500 text-sm text-center hidden"></div>
+                <div class="text-center mt-4">
+                    <a href="#" class="text-green-600 hover:underline" onclick="showRegister()">Não tem uma conta? Cadastre-se</a>
+                </div>
+            </form>
+        </section>
+
+        <!-- Register Section -->
+        <section id="registerSection" class="hidden max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-black mb-6 text-center">Cadastro</h2>
+            <form id="registerForm" class="space-y-4">
+                <div>
+                    <label for="registerIndicative" class="block text-sm font-medium text-gray-700 mb-1">Indicativo</label>
+                    <input type="text" id="registerIndicative" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" maxlength="6">
+                    <div id="registerIndicativeError" class="error-message hidden">Indicativo inválido (máx. 6 caracteres)</div>
+                </div>
+                <div>
+                    <label for="registerName" class="block text-sm font-medium text-gray-700 mb-1">Nome Completo</label>
+                    <input type="text" id="registerName" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" maxlength="40">
+                    <div id="registerNameError" class="error-message hidden">Nome inválido (máx. 40 caracteres)</div>
+                </div>
+                <div>
+                    <label for="registerEmail" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="registerEmail" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <div id="registerEmailError" class="error-message hidden">Email inválido</div>
+                </div>
+                <div>
+                    <label for="registerPhone" class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
+                    <input type="text" id="registerPhone" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="99 99999-9999">
+                    <div id="registerPhoneError" class="error-message hidden">Telefone inválido (formato: 99 99999-9999)</div>
+                </div>
+                <div>
+                    <label for="registerPassword" class="block text-sm font-medium text-gray-700 mb-1">Senha</label>
+                    <input type="password" id="registerPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <div id="registerPasswordError" class="error-message hidden">Senha deve ter pelo menos 6 caracteres</div>
+                </div>
+                <div>
+                    <label for="registerConfirmPassword" class="block text-sm font-medium text-gray-700 mb-1">Confirmar Senha</label>
+                    <input type="password" id="registerConfirmPassword" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                    <div id="registerConfirmPasswordError" class="error-message hidden">As senhas não coincidem</div>
+                </div>
+                <button type="button" onclick="performRegister()" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                    Cadastrar
+                </button>
+                <div id="registerError" class="text-red-500 text-sm text-center hidden"></div>
+                <div id="registerSuccess" class="text-green-600 text-sm text-center hidden"></div>
+                <div class="text-center mt-4">
+                    <a href="#" class="text-green-600 hover:underline" onclick="showLogin()">Já tem uma conta? Faça login</a>
+                </div>
+            </form>
+        </section>
+
+        <!-- Add Repeater Section -->
+        <section id="addRepeaterSection" class="hidden max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-black mb-6 text-center">Adicionar Repetidora</h2>
+            <form id="addRepeaterForm" class="space-y-4">
+                <div>
+                    <label for="repeaterCountry" class="block text-sm font-medium text-gray-700 mb-1">País *</label>
+                    <select id="repeaterCountry" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione um país</option>
+                        <option value="Brasil">Brasil</option>
+                        <option value="Chile">Chile</option>
+                        <option value="Paraguai">Paraguai</option>
+                        <option value="Uruguai">Uruguai</option>
+                        <option value="Argentina">Argentina</option>
+                    </select>
+                    <div id="repeaterCountryError" class="error-message hidden">Selecione um país</div>
+                </div>
+                <div>
+                    <label for="repeaterState" class="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
+                    <select id="repeaterState" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" disabled>
+                        <option value="">Selecione um estado</option>
+                    </select>
+                    <div id="repeaterStateError" class="error-message hidden">Selecione um estado</div>
+                </div>
+                <div>
+                    <label for="repeaterCity" class="block text-sm font-medium text-gray-700 mb-1">Cidade *</label>
+                    <select id="repeaterCity" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" disabled>
+                        <option value="">Selecione uma cidade</option>
+                    </select>
+                    <div id="repeaterCityError" class="error-message hidden">Selecione uma cidade</div>
+                </div>
+                <div>
+                    <label for="repeaterFrequency" class="block text-sm font-medium text-gray-700 mb-1">Frequência (MHz) *</label>
+                    <input type="text" id="repeaterFrequency" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ex: 146.940">
+                    <div id="repeaterFrequencyError" class="error-message hidden">Formato inválido (ex: 146.940)</div>
+                </div>
+                <div>
+                    <label for="repeaterDuplex" class="block text-sm font-medium text-gray-700 mb-1">Duplex *</label>
+                    <select id="repeaterDuplex" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione uma opção</option>
+                        <option value="simples">Simples</option>
+                        <option value="+">+</option>
+                        <option value="-">-</option>
+                    </select>
+                    <div id="repeaterDuplexError" class="error-message hidden">Selecione uma opção</div>
+                </div>
+                <div>
+                    <label for="repeaterSubton" class="block text-sm font-medium text-gray-700 mb-1">Subtom (Hz) *</label>
+                    <input type="text" id="repeaterSubton" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ex: 88.5">
+                    <div id="repeaterSubtonError" class="error-message hidden">Formato inválido (ex: 88.5)</div>
+                </div>
+                <div>
+                    <label for="repeaterStatus" class="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                    <select id="repeaterStatus" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione um status</option>
+                        <option value="operacional">Operacional</option>
+                        <option value="não-operacional">Não-operacional</option>
+                    </select>
+                    <div id="repeaterStatusError" class="error-message hidden">Selecione um status</div>
+                </div>
+                <div class="flex justify-end space-x-4 pt-4">
+                    <button type="button" onclick="showHome()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="saveRepeater()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        Salvar Repetidora
+                    </button>
+                </div>
+                <div id="repeaterError" class="text-red-500 text-sm text-center hidden"></div>
+                <div id="repeaterSuccess" class="text-green-600 text-sm text-center hidden"></div>
+            </form>
+        </section>
+
+        <!-- Edit Repeater Section -->
+        <section id="editRepeaterSection" class="hidden max-w-2xl mx-auto bg-white p-8 rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-black mb-6 text-center">Editar Repetidora</h2>
+            <form id="editRepeaterForm" class="space-y-4">
+                <input type="hidden" id="editRepeaterId">
+                <div>
+                    <label for="editRepeaterCountry" class="block text-sm font-medium text-gray-700 mb-1">País *</label>
+                    <select id="editRepeaterCountry" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione um país</option>
+                        <option value="Brasil">Brasil</option>
+                        <option value="Chile">Chile</option>
+                        <option value="Paraguai">Paraguai</option>
+                        <option value="Uruguai">Uruguai</option>
+                        <option value="Argentina">Argentina</option>
+                    </select>
+                    <div id="editRepeaterCountryError" class="error-message hidden">Selecione um país</div>
+                </div>
+                <div>
+                    <label for="editRepeaterState" class="block text-sm font-medium text-gray-700 mb-1">Estado *</label>
+                    <select id="editRepeaterState" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione um estado</option>
+                    </select>
+                    <div id="editRepeaterStateError" class="error-message hidden">Selecione um estado</div>
+                </div>
+                <div>
+                    <label for="editRepeaterCity" class="block text-sm font-medium text-gray-700 mb-1">Cidade *</label>
+                    <select id="editRepeaterCity" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione uma cidade</option>
+                    </select>
+                    <div id="editRepeaterCityError" class="error-message hidden">Selecione uma cidade</div>
+                </div>
+                <div>
+                    <label for="editRepeaterFrequency" class="block text-sm font-medium text-gray-700 mb-1">Frequência (MHz) *</label>
+                    <input type="text" id="editRepeaterFrequency" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ex: 146.940">
+                    <div id="editRepeaterFrequencyError" class="error-message hidden">Formato inválido (ex: 146.940)</div>
+                </div>
+                <div>
+                    <label for="editRepeaterDuplex" class="block text-sm font-medium text-gray-700 mb-1">Duplex *</label>
+                    <select id="editRepeaterDuplex" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione uma opção</option>
+                        <option value="simples">Simples</option>
+                        <option value="+">+</option>
+                        <option value="-">-</option>
+                    </select>
+                    <div id="editRepeaterDuplexError" class="error-message hidden">Selecione uma opção</div>
+                </div>
+                <div>
+                    <label for="editRepeaterSubton" class="block text-sm font-medium text-gray-700 mb-1">Subtom (Hz) *</label>
+                    <input type="text" id="editRepeaterSubton" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500" placeholder="Ex: 88.5">
+                    <div id="editRepeaterSubtonError" class="error-message hidden">Formato inválido (ex: 88.5)</div>
+                </div>
+                <div>
+                    <label for="editRepeaterStatus" class="block text-sm font-medium text-gray-700 mb-1">Status *</label>
+                    <select id="editRepeaterStatus" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <option value="">Selecione um status</option>
+                        <option value="operacional">Operacional</option>
+                        <option value="não-operacional">Não-operacional</option>
+                    </select>
+                    <div id="editRepeaterStatusError" class="error-message hidden">Selecione um status</div>
+                </div>
+                <div class="flex justify-end space-x-4 pt-4">
+                    <button type="button" onclick="showHome()" class="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100 transition focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2">
+                        Cancelar
+                    </button>
+                    <button type="button" onclick="updateRepeater()" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2">
+                        Atualizar Repetidora
+                    </button>
+                </div>
+                <div id="editRepeaterError" class="text-red-500 text-sm text-center hidden"></div>
+                <div id="editRepeaterSuccess" class="text-green-600 text-sm text-center hidden"></div>
+            </form>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-black text-white py-6">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <div class="flex items-center space-x-2">
+                        <i class="fas fa-broadcast-tower text-green-500"></i>
+                        <span class="font-bold">Monitor de Repetidoras</span>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-1">Sistema para radioamadores - 2023</p>
+                </div>
+                <div class="flex space-x-4">
+                    <a href="#" class="text-gray-400 hover:text-green-400 transition"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-green-400 transition"><i class="fab fa-twitter"></i></a>
+                    <a href="#" class="text-gray-400 hover:text-green-400 transition"><i class="fab fa-instagram"></i></a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Modal -->
+    <div id="loadingModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full text-center">
+            <div class="loading-spinner mb-4"></div>
+            <p class="text-black font-medium">Processando, por favor aguarde...</p>
+        </div>
+    </div>
+
+    <script>
+        // Database simulation
+        let users = [
+            { 
+                indicative: "guigamalho", 
+                name: "Guilherme Gamalho", 
+                email: "guigamalho@example.com", 
+                phone: "11 98765-4321", 
+                password: "Radio@amador369",
+                isAdmin: true
+            },
+            { 
+                indicative: "lucianolessa", 
+                name: "Luciano Lessa", 
+                email: "lucianolessa@example.com", 
+                phone: "21 98765-4321", 
+                password: "Radio@amador369",
+                isAdmin: true
+            }
+        ];
+
+        let repeaters = [
+            {
+                id: 1,
+                country: "Brasil",
+                state: "SP",
+                city: "São Paulo",
+                frequency: "146.940",
+                duplex: "-",
+                subton: "88.5",
+                status: "operacional",
+                verifiedBy: "guigamalho"
+            },
+            {
+                id: 2,
+                country: "Brasil",
+                state: "RJ",
+                city: "Rio de Janeiro",
+                frequency: "147.300",
+                duplex: "+",
+                subton: "100.0",
+                status: "operacional",
+                verifiedBy: "lucianolessa"
+            },
+            {
+                id: 3,
+                country: "Argentina",
+                state: "BA",
+                city: "Buenos Aires",
+                frequency: "145.350",
+                duplex: "-",
+                subton: "94.8",
+                status: "não-operacional",
+                verifiedBy: "guigamalho"
+            }
+        ];
+
+        let logs = [];
+        let currentUser = null;
+        let map;
+        let markers = [];
+
+        // States and cities data
+        const statesByCountry = {
+            "Brasil": ["AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"],
+            "Chile": ["AN", "AR", "AP", "AT", "BI", "CO", "LI", "LL", "LR", "MA", "ML", "NB", "RM", "TA", "VS"],
+            "Paraguai": ["AS", "BO", "CG", "CN", "CY", "GU", "IT", "MI", "NE", "PA", "PH", "SP"],
+            "Uruguai": ["AR", "CA", "CL", "CO", "DU", "FD", "FS", "LA", "MA", "MO", "PA", "RN", "RO", "RV", "SA", "SJ", "SO", "TA", "TT"],
+            "Argentina": ["BA", "CA", "CH", "CO", "CR", "ER", "FO", "JU", "LP", "LR", "ME", "MI", "NE", "RN", "SA", "SC", "SE", "SF", "SJ", "SL", "TF", "TU"]
+        };
+
+        const citiesByState = {
+            // Brazil
+            "SP": ["São Paulo", "Campinas", "São Bernardo do Campo", "Santo André", "Osasco", "São José dos Campos"],
+            "RJ": ["Rio de Janeiro", "Niterói", "Nova Iguaçu", "São Gonçalo", "Duque de Caxias", "Petrópolis"],
+            // Argentina
+            "BA": ["Buenos Aires", "La Plata", "Mar del Plata", "Quilmes", "Banfield", "Lanús"],
+            // Chile
+            "RM": ["Santiago", "Puente Alto", "Maipú", "La Florida", "Las Condes", "San Bernardo"],
+            // Paraguay
+            "AS": ["Asunción", "San Lorenzo", "Capiatá", "Lambaré", "Fernando de la Mora", "Luque"],
+            // Uruguay
+            "FD": ["Montevideo", "Ciudad de la Costa", "Paysandú", "Las Piedras", "Rivera", "Maldonado"]
+        };
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            showHome();
+            initializeMap();
+            loadRepeaters();
+            setupEventListeners();
+        });
+
+        function initializeMap() {
+            map = L.map('map').setView([-15.77972, -47.92972], 4); // Center on Brazil
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+        }
+
+        function setupEventListeners() {
+            // Country change for add repeater
+            document.getElementById('repeaterCountry').addEventListener('change', function() {
+                const country = this.value;
+                const stateSelect = document.getElementById('repeaterState');
+                
+                stateSelect.innerHTML = '<option value="">Selecione um estado</option>';
+                stateSelect.disabled = !country;
+                
+                if (country) {
+                    const states = statesByCountry[country] || [];
+                    states.forEach(state => {
+                        const option = document.createElement('option');
+                        option.value = state;
+                        option.textContent = state;
+                        stateSelect.appendChild(option);
+                    });
+                    stateSelect.disabled = false;
+                }
+                
+                document.getElementById('repeaterCity').innerHTML = '<option value="">Selecione uma cidade</option>';
+                document.getElementById('repeaterCity').disabled = true;
+            });
+
+            // State change for add repeater
+            document.getElementById('repeaterState').addEventListener('change', function() {
+                const state = this.value;
+                const citySelect = document.getElementById('repeaterCity');
+                
+                citySelect.innerHTML = '<option value="">Selecione uma cidade</option>';
+                citySelect.disabled = !state;
+                
+                if (state) {
+                    const cities = citiesByState[state] || [];
+                    cities.forEach(city => {
+                        const option = document.createElement('option');
+                        option.value = city;
+                        option.textContent = city;
+                        citySelect.appendChild(option);
+                    });
+                    citySelect.disabled = false;
+                }
+            });
+
+            // Country change for edit repeater
+            document.getElementById('editRepeaterCountry').addEventListener('change', function() {
+                const country = this.value;
+                const stateSelect = document.getElementById('editRepeaterState');
+                
+                stateSelect.innerHTML = '<option value="">Selecione um estado</option>';
+                stateSelect.disabled = !country;
+                
+                if (country) {
+                    const states = statesByCountry[country] || [];
+                    states.forEach(state => {
+                        const option = document.createElement('option');
+                        option.value = state;
+                        option.textContent = state;
+                        stateSelect.appendChild(option);
+                    });
+                    stateSelect.disabled = false;
+                }
+                
+                document.getElementById('editRepeaterCity').innerHTML = '<option value="">Selecione uma cidade</option>';
+                document.getElementById('editRepeaterCity').disabled = true;
+            });
+
+            // State change for edit repeater
+            document.getElementById('editRepeaterState').addEventListener('change', function() {
+                const state = this.value;
+                const citySelect = document.getElementById('editRepeaterCity');
+                
+                citySelect.innerHTML = '<option value="">Selecione uma cidade</option>';
+                citySelect.disabled = !state;
+                
+                if (state) {
+                    const cities = citiesByState[state] || [];
+                    cities.forEach(city => {
+                        const option = document.createElement('option');
+                        option.value = city;
+                        option.textContent = city;
+                        citySelect.appendChild(option);
+                    });
+                    citySelect.disabled = false;
+                }
+            });
+
+            // Search and filter events
+            document.getElementById('searchRepeaters').addEventListener('input', function() {
+                loadRepeaters();
+            });
+
+            document.getElementById('filterCountry').addEventListener('change', function() {
+                loadRepeaters();
+            });
+
+            document.getElementById('filterStatus').addEventListener('change', function() {
+                loadRepeaters();
+            });
+
+            // Phone number mask
+            document.getElementById('registerPhone').addEventListener('input', function(e) {
+                let value = e.target.value.replace(/\D/g, '');
+                
+                if (value.length > 2) {
+                    value = value.substring(0, 2) + ' ' + value.substring(2);
+                }
+                
+                if (value.length > 7) {
+                    value = value.substring(0, 7) + '-' + value.substring(7, 11);
+                }
+                
+                e.target.value = value.substring(0, 13);
+            });
+        }
+
+        function showLoading(show) {
+            const modal = document.getElementById('loadingModal');
+            modal.classList.toggle('hidden', !show);
+        }
+
+        function showHome() {
+            document.getElementById('homeSection').classList.remove('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('addRepeaterSection').classList.add('hidden');
+            document.getElementById('editRepeaterSection').classList.add('hidden');
+            loadRepeaters();
+        }
+
+        function showLogin() {
+            document.getElementById('homeSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('addRepeaterSection').classList.add('hidden');
+            document.getElementById('editRepeaterSection').classList.add('hidden');
+            
+            // Clear form
+            document.getElementById('loginIndicative').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginError').classList.add('hidden');
+        }
+
+        function showRegister() {
+            document.getElementById('homeSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.remove('hidden');
+            document.getElementById('addRepeaterSection').classList.add('hidden');
+            document.getElementById('editRepeaterSection').classList.add('hidden');
+            
+            // Clear form
+            document.getElementById('registerIndicative').value = '';
+            document.getElementById('registerName').value = '';
+            document.getElementById('registerEmail').value = '';
+            document.getElementById('registerPhone').value = '';
+            document.getElementById('registerPassword').value = '';
+            document.getElementById('registerConfirmPassword').value = '';
+            document.getElementById('registerError').classList.add('hidden');
+            document.getElementById('registerSuccess').classList.add('hidden');
+        }
+
+        function showAddRepeater() {
+            if (!currentUser) {
+                showLogin();
+                return;
+            }
+            
+            document.getElementById('homeSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('addRepeaterSection').classList.remove('hidden');
+            document.getElementById('editRepeaterSection').classList.add('hidden');
+            
+            // Clear form
+            document.getElementById('repeaterCountry').value = '';
+            document.getElementById('repeaterState').innerHTML = '<option value="">Selecione um estado</option>';
+            document.getElementById('repeaterState').disabled = true;
+            document.getElementById('repeaterCity').innerHTML = '<option value="">Selecione uma cidade</option>';
+            document.getElementById('repeaterCity').disabled = true;
+            document.getElementById('repeaterFrequency').value = '';
+            document.getElementById('repeaterDuplex').value = '';
+            document.getElementById('repeaterSubton').value = '';
+            document.getElementById('repeaterStatus').value = '';
+            document.getElementById('repeaterError').classList.add('hidden');
+            document.getElementById('repeaterSuccess').classList.add('hidden');
+        }
+
+        function showEditRepeater(repeaterId) {
+            if (!currentUser) {
+                showLogin();
+                return;
+            }
+            
+            const repeater = repeaters.find(r => r.id === repeaterId);
+            if (!repeater) return;
+            
+            document.getElementById('homeSection').classList.add('hidden');
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('registerSection').classList.add('hidden');
+            document.getElementById('addRepeaterSection').classList.add('hidden');
+            document.getElementById('editRepeaterSection').classList.remove('hidden');
+            
+            // Fill form
+            document.getElementById('editRepeaterId').value = repeater.id;
+            document.getElementById('editRepeaterCountry').value = repeater.country;
+            
+            // Load states for the country
+            const stateSelect = document.getElementById('editRepeaterState');
+            stateSelect.innerHTML = '<option value="">Selecione um estado</option>';
+            const states = statesByCountry[repeater.country] || [];
+            states.forEach(state => {
+                const option = document.createElement('option');
+                option.value = state;
+                option.textContent = state;
+                stateSelect.appendChild(option);
+            });
+            stateSelect.value = repeater.state;
+            stateSelect.disabled = false;
+            
+            // Load cities for the state
+            const citySelect = document.getElementById('editRepeaterCity');
+            citySelect.innerHTML = '<option value="">Selecione uma cidade</option>';
+            const cities = citiesByState[repeater.state] || [];
+            cities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+            citySelect.value = repeater.city;
+            citySelect.disabled = false;
+            
+            document.getElementById('editRepeaterFrequency').value = repeater.frequency;
+            document.getElementById('editRepeaterDuplex').value = repeater.duplex;
+            document.getElementById('editRepeaterSubton').value = repeater.subton;
+            document.getElementById('editRepeaterStatus').value = repeater.status;
+            document.getElementById('editRepeaterError').classList.add('hidden');
+            document.getElementById('editRepeaterSuccess').classList.add('hidden');
+        }
+
+        function loadRepeaters() {
+            const searchTerm = document.getElementById('searchRepeaters').value.toLowerCase();
+            const filterCountry = document.getElementById('filterCountry').value;
+            const filterStatus = document.getElementById('filterStatus').value;
+            
+            let filteredRepeaters = repeaters;
+            
+            if (searchTerm) {
+                filteredRepeaters = filteredRepeaters.filter(repeater => 
+                    repeater.country.toLowerCase().includes(searchTerm) ||
+                    repeater.state.toLowerCase().includes(searchTerm) ||
+                    repeater.city.toLowerCase().includes(searchTerm) ||
+                    repeater.frequency.toLowerCase().includes(searchTerm) ||
+                    repeater.verifiedBy.toLowerCase().includes(searchTerm)
+                );
+            }
+            
+            if (filterCountry) {
+                filteredRepeaters = filteredRepeaters.filter(repeater => repeater.country === filterCountry);
+            }
+            
+            if (filterStatus) {
+                filteredRepeaters = filteredRepeaters.filter(repeater => repeater.status === filterStatus);
+            }
+            
+            const tableBody = document.getElementById('repeatersTableBody');
+            tableBody.innerHTML = '';
+            
+            if (filteredRepeaters.length === 0) {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td colspan="9" class="py-4 px-4 text-center text-gray-500">Nenhuma repetidora encontrada</td>
+                `;
+                tableBody.appendChild(row);
+            } else {
+                filteredRepeaters.forEach(repeater => {
+                    const row = document.createElement('tr');
+                    row.className = 'hover:bg-gray-50';
+                    
+                    const statusClass = repeater.status === 'operacional' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+                    const statusText = repeater.status === 'operacional' ? 'Operacional' : 'Não-operacional';
+                    
+                    row.innerHTML = `
+                        <td class="py-3 px-4">${repeater.country}</td>
+                        <td class="py-3 px-4">${repeater.state}</td>
+                        <td class="py-3 px-4">${repeater.city}</td>
+                        <td class="py-3 px-4">${repeater.frequency}</td>
+                        <td class="py-3 px-4">${repeater.duplex}</td>
+                        <td class="py-3 px-4">${repeater.subton}</td>
+                        <td class="py-3 px-4"><span class="px-2 py-1 rounded-full text-xs font-medium ${statusClass}">${statusText}</span></td>
+                        <td class="py-3 px-4">${repeater.verifiedBy}</td>
+                        <td class="py-3 px-4">
+                            ${currentUser ? `<button onclick="showEditRepeater(${repeater.id})" class="text-green-600 hover:text-green-800 mr-2"><i class="fas fa-edit"></i></button>` : ''}
+                        </td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+            }
+            
+            updateMapMarkers(filteredRepeaters);
+        }
+
+        function updateMapMarkers(repeatersList) {
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            if (repeatersList.length === 0) return;
+            
+            // Simplified coordinates for demo purposes
+            const demoCoordinates = {
+                "Brasil": {
+                    "SP": { "São Paulo": [-23.5505, -46.6333], "Campinas": [-22.9056, -47.0608] },
+                    "RJ": { "Rio de Janeiro": [-22.9068, -43.1729], "Niterói": [-22.8837, -43.1034] }
+                },
+                "Argentina": {
+                    "BA": { "Buenos Aires": [-34.6037, -58.3816], "La Plata": [-34.9205, -57.9536] }
+                },
+                "Chile": {
+                    "RM": { "Santiago": [-33.4489, -70.6693], "Puente Alto": [-33.6167, -70.5833] }
+                },
+                "Paraguai": {
+                    "AS": { "Asunción": [-25.2637, -57.5759], "San Lorenzo": [-25.3397, -57.5089] }
+                },
+                "Uruguai": {
+                    "FD": { "Montevideo": [-34.9011, -56.1645], "Ciudad de la Costa": [-34.8167, -55.95] }
+                }
+            };
+            
+            // Add new markers
+            repeatersList.forEach(repeater => {
+                const countryData = demoCoordinates[repeater.country];
+                if (!countryData) return;
+                
+                const stateData = countryData[repeater.state];
+                if (!stateData) return;
+                
+                const cityData = stateData[repeater.city];
+                if (!cityData) return;
+                
+                const [lat, lng] = cityData;
+                
+                const statusIcon = repeater.status === 'operacional' ? 
+                    '<i class="fas fa-broadcast-tower text-green-500"></i>' : 
+                    '<i class="fas fa-broadcast-tower text-red-500"></i>';
+                
+                const marker = L.marker([lat, lng], {
+                    icon: L.divIcon({
+                        html: statusIcon,
+                        iconSize: [24, 24],
+                        className: 'text-2xl'
+                    })
+                }).addTo(map);
+                
+                marker.bindPopup(`
+                    <div class="font-medium">${repeater.city}, ${repeater.state}</div>
+                    <div>${repeater.country}</div>
+                    <div class="mt-2"><strong>Frequência:</strong> ${repeater.frequency} MHz</div>
+                    <div><strong>Duplex:</strong> ${repeater.duplex}</div>
+                    <div><strong>Subtom:</strong> ${repeater.subton} Hz</div>
+                    <div class="mt-1"><span class="px-2 py-1 rounded-full text-xs font-medium ${repeater.status === 'operacional' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${repeater.status === 'operacional' ? 'Operacional' : 'Não-operacional'}</span></div>
+                    <div class="mt-1 text-sm text-gray-500">Verificada por: ${repeater.verifiedBy}</div>
+                `);
+                
+                markers.push(marker);
+            });
+            
+            // Fit map to show all markers
+            if (markers.length > 0) {
+                const group = new L.featureGroup(markers);
+                map.fitBounds(group.getBounds().pad(0.2));
+            }
+        }
+
+        function validateIndicative(indicative) {
+            return indicative.length <= 6 && /^[a-zA-Z0-9]+$/.test(indicative);
+        }
+
+        function validateName(name) {
+            return name.length <= 40 && name.trim().length > 0;
+        }
+
+        function validateEmail(email) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        }
+
+        function validatePhone(phone) {
+            return /^\d{2} \d{5}-\d{4}$/.test(phone);
+        }
+
+        function validatePassword(password) {
+            return password.length >= 6;
+        }
+
+        function validateFrequency(frequency) {
+            return /^\d{3}\.\d{3}$/.test(frequency);
+        }
+
+        function validateSubton(subton) {
+            return /^\d{3}\.\d$/.test(subton);
+        }
+
+        function performLogin() {
+            const indicative = document.getElementById('loginIndicative').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            let isValid = true;
+            
+            // Validate indicative
+            if (!validateIndicative(indicative)) {
+                document.getElementById('loginIndicative').classList.add('input-error');
+                document.getElementById('loginIndicativeError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('loginIndicative').classList.remove('input-error');
+                document.getElementById('loginIndicativeError').classList.add('hidden');
+            }
+            
+            // Validate password
+            if (!validatePassword(password)) {
+                document.getElementById('loginPassword').classList.add('input-error');
+                document.getElementById('loginPasswordError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('loginPassword').classList.remove('input-error');
+                document.getElementById('loginPasswordError').classList.add('hidden');
+            }
+            
+            if (!isValid) return;
+            
+            showLoading(true);
+            
+            // Simulate API call
+            setTimeout(() => {
+                const user = users.find(u => u.indicative.toLowerCase() === indicative.toLowerCase() && u.password === password);
+                
+                if (user) {
+                    currentUser = user;
+                    updateNavForLoggedInUser();
+                    showHome();
+                    
+                    // Log the login
+                    logs.push({
+                        action: 'login',
+                        user: user.indicative,
+                        timestamp: new Date().toISOString()
+                    });
+                } else {
+                    document.getElementById('loginError').textContent = 'Indicativo ou senha incorretos';
+                    document.getElementById('loginError').classList.remove('hidden');
+                }
+                
+                showLoading(false);
+            }, 1000);
+        }
+
+        function performRegister() {
+            const indicative = document.getElementById('registerIndicative').value;
+            const name = document.getElementById('registerName').value;
+            const email = document.getElementById('registerEmail').value;
+            const phone = document.getElementById('registerPhone').value;
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('registerConfirmPassword').value;
+            
+            let isValid = true;
+            
+            // Validate indicative
+            if (!validateIndicative(indicative)) {
+                document.getElementById('registerIndicative').classList.add('input-error');
+                document.getElementById('registerIndicativeError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('registerIndicative').classList.remove('input-error');
+                document.getElementById('registerIndicativeError').classList.add('hidden');
+            }
+            
+            // Validate name
+            if (!validateName(name)) {
+                document.getElementById('registerName').classList.add('input-error');
+                document.getElementById('registerNameError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('registerName').classList.remove('input-error');
+                document.getElementById('registerNameError').classList.add('hidden');
+            }
+            
+            // Validate email
+            if (!validateEmail(email)) {
+                document.getElementById('registerEmail').classList.add('input-error');
+                document.getElementById('registerEmailError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('registerEmail').classList.remove('input-error');
+                document.getElementById('registerEmailError').classList.add('hidden');
+            }
+            
+            // Validate phone
+            if (!validatePhone(phone)) {
+                document.getElementById('registerPhone').classList.add('input-error');
+                document.getElementById('registerPhoneError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('registerPhone').classList.remove('input-error');
+                document.getElementById('registerPhoneError').classList.add('hidden');
+            }
+            
+            // Validate password
+            if (!validatePassword(password)) {
+                document.getElementById('registerPassword').classList.add('input-error');
+                document.getElementById('registerPasswordError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('registerPassword').classList.remove('input-error');
+                document.getElementById('registerPasswordError').classList.add('hidden');
+            }
+            
+            // Validate confirm password
+            if (password !== confirmPassword) {
+                document.getElementById('registerConfirmPassword').classList.add('input-error');
+                document.getElementById('registerConfirmPasswordError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('registerConfirmPassword').classList.remove('input-error');
+                document.getElementById('registerConfirmPasswordError').classList.add('hidden');
+            }
+            
+            if (!isValid) return;
+            
+            showLoading(true);
+            
+            // Simulate API call
+            setTimeout(() => {
+                // Check if user already exists
+                const userExists = users.some(u => u.indicative.toLowerCase() === indicative.toLowerCase() || u.email.toLowerCase() === email.toLowerCase());
+                
+                if (userExists) {
+                    document.getElementById('registerError').textContent = 'Indicativo ou email já cadastrado';
+                    document.getElementById('registerError').classList.remove('hidden');
+                    document.getElementById('registerSuccess').classList.add('hidden');
+                } else {
+                    // Add new user
+                    const newUser = {
+                        indicative,
+                        name,
+                        email,
+                        phone,
+                        password,
+                        isAdmin: false
+                    };
+                    
+                    users.push(newUser);
+                    
+                    // Log the registration
+                    logs.push({
+                        action: 'register',
+                        user: indicative,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    document.getElementById('registerError').classList.add('hidden');
+                    document.getElementById('registerSuccess').textContent = 'Cadastro realizado com sucesso! Você pode fazer login agora.';
+                    document.getElementById('registerSuccess').classList.remove('hidden');
+                    
+                    // Clear form
+                    document.getElementById('registerIndicative').value = '';
+                    document.getElementById('registerName').value = '';
+                    document.getElementById('registerEmail').value = '';
+                    document.getElementById('registerPhone').value = '';
+                    document.getElementById('registerPassword').value = '';
+                    document.getElementById('registerConfirmPassword').value = '';
+                }
+                
+                showLoading(false);
+            }, 1000);
+        }
+
+        function saveRepeater() {
+            const country = document.getElementById('repeaterCountry').value;
+            const state = document.getElementById('repeaterState').value;
+            const city = document.getElementById('repeaterCity').value;
+            const frequency = document.getElementById('repeaterFrequency').value;
+            const duplex = document.getElementById('repeaterDuplex').value;
+            const subton = document.getElementById('repeaterSubton').value;
+            const status = document.getElementById('repeaterStatus').value;
+            
+            let isValid = true;
+            
+            // Validate country
+            if (!country) {
+                document.getElementById('repeaterCountry').classList.add('input-error');
+                document.getElementById('repeaterCountryError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('repeaterCountry').classList.remove('input-error');
+                document.getElementById('repeaterCountryError').classList.add('hidden');
+            }
+            
+            // Validate state
+            if (!state) {
+                document.getElementById('repeaterState').classList.add('input-error');
+                document.getElementById('repeaterStateError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('repeaterState').classList.remove('input-error');
+                document.getElementById('repeaterStateError').classList.add('hidden');
+            }
+            
+            // Validate city
+            if (!city) {
+                document.getElementById('repeaterCity').classList.add('input-error');
+                document.getElementById('repeaterCityError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('repeaterCity').classList.remove('input-error');
+                document.getElementById('repeaterCityError').classList.add('hidden');
+            }
+            
+            // Validate frequency
+            if (!validateFrequency(frequency)) {
+                document.getElementById('repeaterFrequency').classList.add('input-error');
+                document.getElementById('repeaterFrequencyError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('repeaterFrequency').classList.remove('input-error');
+                document.getElementById('repeaterFrequencyError').classList.add('hidden');
+            }
+            
+            // Validate duplex
+            if (!duplex) {
+                document.getElementById('repeaterDuplex').classList.add('input-error');
+                document.getElementById('repeaterDuplexError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('repeaterDuplex').classList.remove('input-error');
+                document.getElementById('repeaterDuplexError').classList.add('hidden');
+            }
+            
+            // Validate subton
+            if (!validateSubton(subton)) {
+                document.getElementById('repeaterSubton').classList.add('input-error');
+                document.getElementById('repeaterSubtonError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('repeaterSubton').classList.remove('input-error');
+                document.getElementById('repeaterSubtonError').classList.add('hidden');
+            }
+            
+            // Validate status
+            if (!status) {
+                document.getElementById('repeaterStatus').classList.add('input-error');
+                document.getElementById('repeaterStatusError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('repeaterStatus').classList.remove('input-error');
+                document.getElementById('repeaterStatusError').classList.add('hidden');
+            }
+            
+            if (!isValid) return;
+            
+            showLoading(true);
+            
+            // Simulate API call
+            setTimeout(() => {
+                // Create new repeater
+                const newRepeater = {
+                    id: repeaters.length > 0 ? Math.max(...repeaters.map(r => r.id)) + 1 : 1,
+                    country,
+                    state,
+                    city,
+                    frequency,
+                    duplex,
+                    subton,
+                    status,
+                    verifiedBy: currentUser.indicative
+                };
+                
+                repeaters.push(newRepeater);
+                
+                // Log the action
+                logs.push({
+                    action: 'add_repeater',
+                    user: currentUser.indicative,
+                    repeaterId: newRepeater.id,
+                    timestamp: new Date().toISOString()
+                });
+                
+                document.getElementById('repeaterError').classList.add('hidden');
+                document.getElementById('repeaterSuccess').textContent = 'Repetidora adicionada com sucesso!';
+                document.getElementById('repeaterSuccess').classList.remove('hidden');
+                
+                // Clear form
+                document.getElementById('repeaterCountry').value = '';
+                document.getElementById('repeaterState').innerHTML = '<option value="">Selecione um estado</option>';
+                document.getElementById('repeaterState').disabled = true;
+                document.getElementById('repeaterCity').innerHTML = '<option value="">Selecione uma cidade</option>';
+                document.getElementById('repeaterCity').disabled = true;
+                document.getElementById('repeaterFrequency').value = '';
+                document.getElementById('repeaterDuplex').value = '';
+                document.getElementById('repeaterSubton').value = '';
+                document.getElementById('repeaterStatus').value = '';
+                
+                showLoading(false);
+                
+                // Return to home after a delay
+                setTimeout(() => {
+                    showHome();
+                }, 1500);
+            }, 1000);
+        }
+
+        function updateRepeater() {
+            const id = parseInt(document.getElementById('editRepeaterId').value);
+            const country = document.getElementById('editRepeaterCountry').value;
+            const state = document.getElementById('editRepeaterState').value;
+            const city = document.getElementById('editRepeaterCity').value;
+            const frequency = document.getElementById('editRepeaterFrequency').value;
+            const duplex = document.getElementById('editRepeaterDuplex').value;
+            const subton = document.getElementById('editRepeaterSubton').value;
+            const status = document.getElementById('editRepeaterStatus').value;
+            
+            let isValid = true;
+            
+            // Validate country
+            if (!country) {
+                document.getElementById('editRepeaterCountry').classList.add('input-error');
+                document.getElementById('editRepeaterCountryError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('editRepeaterCountry').classList.remove('input-error');
+                document.getElementById('editRepeaterCountryError').classList.add('hidden');
+            }
+            
+            // Validate state
+            if (!state) {
+                document.getElementById('editRepeaterState').classList.add('input-error');
+                document.getElementById('editRepeaterStateError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('editRepeaterState').classList.remove('input-error');
+                document.getElementById('editRepeaterStateError').classList.add('hidden');
+            }
+            
+            // Validate city
+            if (!city) {
+                document.getElementById('editRepeaterCity').classList.add('input-error');
+                document.getElementById('editRepeaterCityError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('editRepeaterCity').classList.remove('input-error');
+                document.getElementById('editRepeaterCityError').classList.add('hidden');
+            }
+            
+            // Validate frequency
+            if (!validateFrequency(frequency)) {
+                document.getElementById('editRepeaterFrequency').classList.add('input-error');
+                document.getElementById('editRepeaterFrequencyError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('editRepeaterFrequency').classList.remove('input-error');
+                document.getElementById('editRepeaterFrequencyError').classList.add('hidden');
+            }
+            
+            // Validate duplex
+            if (!duplex) {
+                document.getElementById('editRepeaterDuplex').classList.add('input-error');
+                document.getElementById('editRepeaterDuplexError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('editRepeaterDuplex').classList.remove('input-error');
+                document.getElementById('editRepeaterDuplexError').classList.add('hidden');
+            }
+            
+            // Validate subton
+            if (!validateSubton(subton)) {
+                document.getElementById('editRepeaterSubton').classList.add('input-error');
+                document.getElementById('editRepeaterSubtonError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('editRepeaterSubton').classList.remove('input-error');
+                document.getElementById('editRepeaterSubtonError').classList.add('hidden');
+            }
+            
+            // Validate status
+            if (!status) {
+                document.getElementById('editRepeaterStatus').classList.add('input-error');
+                document.getElementById('editRepeaterStatusError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                document.getElementById('editRepeaterStatus').classList.remove('input-error');
+                document.getElementById('editRepeaterStatusError').classList.add('hidden');
+            }
+            
+            if (!isValid) return;
+            
+            showLoading(true);
+            
+            // Simulate API call
+            setTimeout(() => {
+                // Find and update repeater
+                const repeaterIndex = repeaters.findIndex(r => r.id === id);
+                
+                if (repeaterIndex !== -1) {
+                    repeaters[repeaterIndex] = {
+                        ...repeaters[repeaterIndex],
+                        country,
+                        state,
+                        city,
+                        frequency,
+                        duplex,
+                        subton,
+                        status,
+                        verifiedBy: currentUser.indicative
+                    };
+                    
+                    // Log the action
+                    logs.push({
+                        action: 'update_repeater',
+                        user: currentUser.indicative,
+                        repeaterId: id,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    document.getElementById('editRepeaterError').classList.add('hidden');
+                    document.getElementById('editRepeaterSuccess').textContent = 'Repetidora atualizada com sucesso!';
+                    document.getElementById('editRepeaterSuccess').classList.remove('hidden');
+                    
+                    showLoading(false);
+                    
+                    // Return to home after a delay
+                    setTimeout(() => {
+                        showHome();
+                    }, 1500);
+                } else {
+                    document.getElementById('editRepeaterError').textContent = 'Repetidora não encontrada';
+                    document.getElementById('editRepeaterError').classList.remove('hidden');
+                    showLoading(false);
+                }
+            }, 1000);
+        }
+
+        function logout() {
+            // Log the logout
+            if (currentUser) {
+                logs.push({
+                    action: 'logout',
+                    user: currentUser.indicative,
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
+            currentUser = null;
+            updateNavForLoggedInUser();
+            showHome();
+        }
+
+        function updateNavForLoggedInUser() {
+            const isLoggedIn = currentUser !== null;
+            
+            document.getElementById('loginNavItem').classList.toggle('hidden', isLoggedIn);
+            document.getElementById('registerNavItem').classList.toggle('hidden', isLoggedIn);
+            document.getElementById('addRepeaterNavItem').classList.toggle('hidden', !isLoggedIn);
+            document.getElementById('logoutNavItem').classList.toggle('hidden', !isLoggedIn);
+        }
+    </script>
+</body>
+</html>
