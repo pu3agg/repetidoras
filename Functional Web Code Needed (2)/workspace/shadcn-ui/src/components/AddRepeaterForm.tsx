@@ -66,25 +66,16 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
       newErrors.location = 'Localização é obrigatória';
     }
 
-    if (!formData.latitude.trim()) {
-      newErrors.latitude = 'Latitude é obrigatória';
-    } else if (isNaN(Number(formData.latitude))) {
+    // Latitude e longitude são opcionais
+    if (formData.latitude.trim() && isNaN(Number(formData.latitude))) {
       newErrors.latitude = 'Latitude deve ser um número';
     }
 
-    if (!formData.longitude.trim()) {
-      newErrors.longitude = 'Longitude é obrigatória';
-    } else if (isNaN(Number(formData.longitude))) {
+    if (formData.longitude.trim() && isNaN(Number(formData.longitude))) {
       newErrors.longitude = 'Longitude deve ser um número';
     }
 
-    if (!formData.power.trim()) {
-      newErrors.power = 'Potência é obrigatória';
-    }
-
-    if (!formData.coverage.trim()) {
-      newErrors.coverage = 'Cobertura é obrigatória';
-    }
+    // Potência e cobertura são opcionais
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -107,8 +98,8 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
         offset: formData.offset.trim(),
         ctcss: formData.ctcss.trim(),
         location: formData.location.trim(),
-        latitude: Number(formData.latitude),
-        longitude: Number(formData.longitude),
+        latitude: formData.latitude.trim() ? Number(formData.latitude) : 0,
+        longitude: formData.longitude.trim() ? Number(formData.longitude) : 0,
         power: formData.power.trim(),
         coverage: formData.coverage.trim(),
         status: formData.status as 'Ativa' | 'Inativa' | 'Manutenção',
@@ -170,13 +161,13 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="callsign">Indicativo de Chamada</Label>
+                  <Label htmlFor="callsign">Indicativo/Nome</Label>
                   <Input
                     id="callsign"
                     type="text"
                     value={formData.callsign}
                     onChange={(e) => handleInputChange('callsign', e.target.value.toUpperCase())}
-                    placeholder="Ex: PY2ABC/R"
+                    placeholder="Ex: PY2ABC/REPETIDORA SP"
                     className={errors.callsign ? 'border-red-500' : ''}
                     disabled={loading}
                   />
@@ -213,15 +204,52 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
 
                 <div>
                   <Label htmlFor="ctcss">CTCSS (Hz)</Label>
-                  <Input
-                    id="ctcss"
-                    type="text"
-                    value={formData.ctcss}
-                    onChange={(e) => handleInputChange('ctcss', e.target.value)}
-                    placeholder="Ex: 88.5"
-                    className={errors.ctcss ? 'border-red-500' : ''}
-                    disabled={loading}
-                  />
+                  <Select value={formData.ctcss} onValueChange={(value) => handleInputChange('ctcss', value)}>
+                    <SelectTrigger className={errors.ctcss ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Selecione o CTCSS" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NÃO TEM">NÃO TEM</SelectItem>
+                      <SelectItem value="67.0">67.0</SelectItem>
+                      <SelectItem value="71.9">71.9</SelectItem>
+                      <SelectItem value="74.4">74.4</SelectItem>
+                      <SelectItem value="77.0">77.0</SelectItem>
+                      <SelectItem value="79.7">79.7</SelectItem>
+                      <SelectItem value="82.5">82.5</SelectItem>
+                      <SelectItem value="85.4">85.4</SelectItem>
+                      <SelectItem value="88.5">88.5</SelectItem>
+                      <SelectItem value="91.5">91.5</SelectItem>
+                      <SelectItem value="94.8">94.8</SelectItem>
+                      <SelectItem value="97.4">97.4</SelectItem>
+                      <SelectItem value="100.0">100.0</SelectItem>
+                      <SelectItem value="103.5">103.5</SelectItem>
+                      <SelectItem value="107.2">107.2</SelectItem>
+                      <SelectItem value="110.9">110.9</SelectItem>
+                      <SelectItem value="114.8">114.8</SelectItem>
+                      <SelectItem value="118.8">118.8</SelectItem>
+                      <SelectItem value="123.0">123.0</SelectItem>
+                      <SelectItem value="127.3">127.3</SelectItem>
+                      <SelectItem value="131.8">131.8</SelectItem>
+                      <SelectItem value="136.5">136.5</SelectItem>
+                      <SelectItem value="141.3">141.3</SelectItem>
+                      <SelectItem value="146.2">146.2</SelectItem>
+                      <SelectItem value="151.4">151.4</SelectItem>
+                      <SelectItem value="156.7">156.7</SelectItem>
+                      <SelectItem value="162.2">162.2</SelectItem>
+                      <SelectItem value="167.9">167.9</SelectItem>
+                      <SelectItem value="173.8">173.8</SelectItem>
+                      <SelectItem value="179.9">179.9</SelectItem>
+                      <SelectItem value="186.2">186.2</SelectItem>
+                      <SelectItem value="192.8">192.8</SelectItem>
+                      <SelectItem value="203.5">203.5</SelectItem>
+                      <SelectItem value="210.7">210.7</SelectItem>
+                      <SelectItem value="218.1">218.1</SelectItem>
+                      <SelectItem value="225.7">225.7</SelectItem>
+                      <SelectItem value="233.6">233.6</SelectItem>
+                      <SelectItem value="241.8">241.8</SelectItem>
+                      <SelectItem value="250.3">250.3</SelectItem>
+                    </SelectContent>
+                  </Select>
                   {errors.ctcss && <p className="text-red-500 text-sm mt-1">{errors.ctcss}</p>}
                 </div>
 
@@ -240,7 +268,7 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="latitude">Latitude</Label>
+                  <Label htmlFor="latitude">Latitude (opcional)</Label>
                   <Input
                     id="latitude"
                     type="text"
@@ -254,7 +282,7 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="longitude">Longitude</Label>
+                  <Label htmlFor="longitude">Longitude (opcional)</Label>
                   <Input
                     id="longitude"
                     type="text"
@@ -268,7 +296,7 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="power">Potência</Label>
+                  <Label htmlFor="power">Potência (opcional)</Label>
                   <Input
                     id="power"
                     type="text"
@@ -282,7 +310,7 @@ const AddRepeaterForm: React.FC<AddRepeaterFormProps> = ({
                 </div>
 
                 <div>
-                  <Label htmlFor="coverage">Cobertura</Label>
+                  <Label htmlFor="coverage">Cobertura (opcional)</Label>
                   <Input
                     id="coverage"
                     type="text"

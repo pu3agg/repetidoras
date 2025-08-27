@@ -49,8 +49,9 @@ const RepeatersMap: React.FC<RepeatersMapProps> = ({
       mapInstanceRef.current = window.L.map(mapRef.current).setView([-15.7942, -47.8822], 4); // Center of Brazil
 
       // Add tile layer
-      window.L.tileLayer('/images/MapTiles.jpg', {
-        attribution: '© OpenStreetMap contributors'
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 19
       }).addTo(mapInstanceRef.current);
     }
 
@@ -60,8 +61,11 @@ const RepeatersMap: React.FC<RepeatersMapProps> = ({
     });
     markersRef.current = [];
 
-    // Add markers for repeaters
+    // Add markers for repeaters (only those with valid coordinates)
     repeaters.forEach(repeater => {
+      // Skip repeaters with no coordinates (0,0)
+      if (repeater.latitude === 0 && repeater.longitude === 0) return;
+      
       const marker = window.L.marker([repeater.latitude, repeater.longitude])
         .addTo(mapInstanceRef.current)
         .bindPopup(`
